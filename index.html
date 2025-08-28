@@ -3,30 +3,547 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Config Display</title>
+    <title>学習計画ダッシュボード</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
-        pre { background: #ffffff; padding: 20px; border: 1px solid #ddd; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+        .card {
+            background-color: #1E1E1E;
+            border: 1px solid #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        .progress-bar {
+            background-color: #4CAF50;
+        }
+        /* Custom scrollbar for cool effect */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2D2D2D;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: #1E1E1E;
+            margin: 5% auto;
+            padding: 24px;
+            border: 1px solid #333;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 10px;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
 </head>
-<body>
-    <h1>Web.config ファイルの内容</h1>
-    <pre>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
-&lt;configuration&gt;
-  &lt;system.webServer&gt;
-    &lt;rewrite&gt;
-      &lt;rules&gt;
-        &lt;rule name=&quot;ReverseProxyInboundRule1&quot; stopProcessing=&quot;true&quot;&gt;
-          &lt;match url=&quot;(.*)&quot; /&gt;
-          &lt;conditions&gt;
-            &lt;add input=&quot;{CACHE_URL}&quot; pattern=&quot;^(https?)://&quot; /&gt;
-          &lt;/conditions&gt;
-          &lt;action type=&quot;Rewrite&quot; url=&quot;http://127.0.0.1:8000/{R:1}&quot; /&gt;
-        &lt;/rule&gt;
-      &lt;/rules&gt;
-    &lt;/rewrite&gt;
-  &lt;/system.webServer&gt;
-&lt;/configuration&gt;
-</pre>
+<body class="p-6 md:p-10 lg:p-16">
+
+    <!-- Header Section -->
+    <header class="flex justify-center md:justify-end items-center mb-10 md:mb-16 relative">
+        <h1 class="text-3xl md:text-5xl font-bold text-white mb-2 md:absolute md:left-1/2 md:-translate-x-1/2">英検準2級 学習計画</h1>
+        <button id="settings-button" class="text-white text-2xl p-2 rounded-full hover:bg-gray-700 transition-colors md:absolute md:right-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12 7a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 8a3 3 0 1 1 3-3 3 3 0 0 1-3 3z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Goal and Progress Section -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 md:mb-16">
+        <!-- Goal Card -->
+        <div class="card p-6 rounded-lg">
+            <h2 class="text-2xl font-semibold mb-2 text-white">ゴール</h2>
+            <p id="goal-display" class="text-gray-300">英検準2級合格</p>
+        </div>
+        <!-- Study Hours Card -->
+        <div class="card p-6 rounded-lg">
+            <h2 class="text-2xl font-semibold mb-2 text-white">学習時間</h2>
+            <p class="text-gray-300">目標: <span id="total-target-hours">150</span>時間</p>
+            <div class="w-full bg-gray-600 rounded-full h-2.5 mt-2">
+                <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <p class="text-sm text-gray-400 mt-1">進捗: <span id="total-current-hours">0</span> / <span id="target-hours-display">150</span>時間 (<span id="progress-percent">0</span>%)</p>
+        </div>
+        <!-- Reason Card -->
+        <div class="card p-6 rounded-lg md:col-span-1">
+            <h2 class="text-2xl font-semibold mb-2 text-white">学習時間の根拠</h2>
+            <p id="reason-display" class="text-gray-300">英検3級の個人成績を基に、GPTに相談した結果</p>
+        </div>
+    </section>
+
+    <!-- Time Logging Section -->
+    <section class="card p-6 rounded-lg mb-10 md:mb-16">
+        <h2 class="text-2xl font-semibold mb-4 text-white">学習時間の登録</h2>
+        <div class="flex flex-col md:flex-row gap-4 items-center">
+            <input type="date" id="study-date" class="bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="number" id="study-minutes" placeholder="学習時間 (分)" class="bg-gray-700 text-white p-2 rounded-md border border-gray-600 w-full md:w-auto focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <button id="add-time-button" class="w-full md:w-auto bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors">時間を追加</button>
+        </div>
+        <div id="message-box" class="mt-4 p-3 bg-red-800 text-white rounded-md hidden"></div>
+    </section>
+
+    <!-- Study History Section -->
+    <section class="card p-6 rounded-lg mb-10 md:mb-16">
+        <h2 class="text-2xl font-semibold mb-4 text-white">学習履歴</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-800">
+                        <th class="p-4">日付</th>
+                        <th class="p-4">時間 (分)</th>
+                        <th class="p-4">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body">
+                    <!-- Data will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Toggle Detailed Plan Button -->
+    <div class="flex justify-center mb-10 md:mb-16">
+        <button id="toggle-plan-button" class="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 transition-colors">週ごとの詳細計画を表示</button>
+    </div>
+
+    <!-- Detailed Plan Section (hidden by default) -->
+    <section id="detailed-plan-section" class="card p-6 rounded-lg mb-10 md:mb-16 hidden">
+        <h2 class="text-2xl font-semibold mb-6 text-white">週ごとの詳細計画</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-800">
+                        <th class="p-4 rounded-tl-lg">項目</th>
+                        <th class="p-4">日</th>
+                        <th class="p-4">週</th>
+                        <th class="p-4">実施内容</th>
+                        <th class="p-4 rounded-tr-lg">評価</th>
+                    </tr>
+                </thead>
+                <tbody id="plan-table-body">
+                    <!-- Data will be populated here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-modal-button" class="close-button">&times;</span>
+            <h2 class="text-2xl font-semibold text-white mb-6">設定</h2>
+            
+            <div class="mb-4">
+                <label for="goal-input" class="block text-gray-400 mb-2">ゴール</label>
+                <input type="text" id="goal-input" class="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div class="mb-4">
+                <label for="target-hours-input" class="block text-gray-400 mb-2">目標学習時間 (時間)</label>
+                <input type="number" id="target-hours-input" class="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div class="mb-6">
+                <label for="reason-input" class="block text-gray-400 mb-2">学習時間の根拠</label>
+                <textarea id="reason-input" class="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-24"></textarea>
+            </div>
+
+            <div class="mb-6">
+                <label for="detailed-plan-input" class="block text-gray-400 mb-2">週ごとの詳細計画</label>
+                <textarea id="detailed-plan-input" class="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-48"></textarea>
+            </div>
+            
+            <div class="flex flex-col md:flex-row gap-4">
+                <button id="save-settings-button" class="flex-1 bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700 transition-colors">設定を保存</button>
+                <button id="reset-button" class="flex-1 bg-red-600 text-white font-bold py-2 px-6 rounded-md hover:bg-red-700 transition-colors">全てリセット</button>
+            </div>
+        </div>
+    </div>
+    <!-- Custom Modal for Confirmation -->
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-xl font-semibold text-white mb-4">確認</h2>
+            <p class="text-gray-300 mb-6">本当にリセットしますか？この操作は元に戻せません。</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-reset-button" class="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500 transition-colors">キャンセル</button>
+                <button id="confirm-reset-button" class="bg-red-600 text-white font-bold py-2 px-6 rounded-md hover:bg-red-700 transition-colors">リセット</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript to handle logic and data population -->
+    <script>
+        // DOM elements
+        const totalTargetHoursDisplay = document.getElementById('total-target-hours');
+        const targetHoursDisplay = document.getElementById('target-hours-display');
+        const totalHoursDisplay = document.getElementById('total-current-hours');
+        const progressPercentDisplay = document.getElementById('progress-percent');
+        const progressBar = document.getElementById('progress-bar');
+        const studyMinutesInput = document.getElementById('study-minutes');
+        const studyDateInput = document.getElementById('study-date');
+        const addButton = document.getElementById('add-time-button');
+        const messageBox = document.getElementById('message-box');
+        const historyTableBody = document.getElementById('history-table-body');
+        const goalDisplay = document.getElementById('goal-display');
+        const reasonDisplay = document.getElementById('reason-display');
+        const planTableBody = document.getElementById('plan-table-body');
+
+        // Settings Modal elements
+        const settingsButton = document.getElementById('settings-button');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeModalButton = document.getElementById('close-modal-button');
+        const goalInput = document.getElementById('goal-input');
+        const targetHoursInput = document.getElementById('target-hours-input');
+        const reasonInput = document.getElementById('reason-input');
+        const detailedPlanInput = document.getElementById('detailed-plan-input');
+        const saveSettingsButton = document.getElementById('save-settings-button');
+        const resetButton = document.getElementById('reset-button');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmResetButton = document.getElementById('confirm-reset-button');
+        const cancelResetButton = document.getElementById('cancel-reset-button');
+
+        // Detailed Plan elements
+        const togglePlanButton = document.getElementById('toggle-plan-button');
+        const detailedPlanSection = document.getElementById('detailed-plan-section');
+
+        let editingIndex = null; // To store the index of the item being edited
+
+        // --- Cookie Functions ---
+        // Get data from cookie
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                try {
+                    return JSON.parse(parts.pop().split(';').shift());
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // Set data to cookie
+        function setCookie(name, value, days) {
+            const d = new Date();
+            d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+            const expires = `expires=${d.toUTCString()}`;
+            document.cookie = `${name}=${JSON.stringify(value)}; ${expires}; path=/`;
+        }
+
+        // --- Data & State Management ---
+        const DEFAULT_SETTINGS = {
+            goal: '英検準2級合格',
+            targetHours: 150,
+            reason: '英検3級の個人成績を基に、GPTに相談した結果',
+            detailedPlan: [
+                { item: '学校', day: '-', week: '3:00', content: '授業', evaluation: '成績' },
+                { item: '塾', day: '-', week: '1:30', content: '授業', evaluation: '面談' },
+                { item: '通学', day: '0:40', week: '3:20', content: 'duolingo', evaluation: 'duolingoの時間管理' },
+                { item: 'ヒッポ', day: '0:10', week: '0:40', content: 'メタ活、LINEメタ活', evaluation: 'メンバーの評価' },
+                { item: '自習 (メタ活)', day: '1:00', week: '2:00', content: 'メタ活 (麻雀時を利用)', evaluation: 'テキスト' },
+                { item: '自習 (テキスト)', day: '1:00', week: '3:00', content: 'テキスト', evaluation: 'テキスト' }
+            ]
+        };
+
+        let currentSettings = DEFAULT_SETTINGS;
+
+        function loadSettings() {
+            const settings = getCookie('studySettings');
+            if (settings) {
+                currentSettings = settings;
+            } else {
+                setCookie('studySettings', DEFAULT_SETTINGS, 365);
+            }
+            applySettings();
+        }
+
+        function applySettings() {
+            goalDisplay.textContent = currentSettings.goal;
+            totalTargetHoursDisplay.textContent = currentSettings.targetHours;
+            targetHoursDisplay.textContent = currentSettings.targetHours;
+            reasonDisplay.textContent = currentSettings.reason;
+            // The detailed plan is handled by a separate function
+            populatePlanTable();
+        }
+        
+        // --- End of Cookie Functions ---
+
+        // Function to update progress display
+        function updateProgress(totalMinutes) {
+            const totalHours = totalMinutes / 60;
+            const progress = (totalHours / currentSettings.targetHours) * 100;
+            totalHoursDisplay.textContent = totalHours.toFixed(1);
+            progressPercentDisplay.textContent = progress.toFixed(1);
+            progressBar.style.width = `${Math.min(progress, 100)}%`;
+        }
+
+        // Function to display messages
+        function showMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.className = `mt-4 p-3 rounded-md transition-all duration-300 ${type === 'red' ? 'bg-red-800' : 'bg-green-800'} block`;
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Function to render the history table
+        function renderHistory() {
+            const historyData = getCookie('studyHistory') || [];
+            historyTableBody.innerHTML = '';
+            let totalMinutes = 0;
+
+            // Sort data by timestamp (most recent first)
+            historyData.sort((a, b) => b.timestamp - a.timestamp);
+
+            historyData.forEach((data, index) => {
+                const row = document.createElement('tr');
+                row.classList.add('border-b', 'border-gray-700', 'hover:bg-gray-700', 'transition-colors');
+                row.innerHTML = `
+                    <td class="p-4 whitespace-nowrap">${data.date}</td>
+                    <td class="p-4 whitespace-nowrap">${data.minutes}</td>
+                    <td class="p-4 whitespace-nowrap">
+                        <button data-index="${index}" class="edit-button text-sm text-blue-400 hover:text-blue-500 font-bold mr-2">修正</button>
+                        <button data-index="${index}" class="delete-button text-sm text-red-400 hover:text-red-500 font-bold">削除</button>
+                    </td>
+                `;
+                historyTableBody.appendChild(row);
+                totalMinutes += data.minutes;
+            });
+            updateProgress(totalMinutes);
+        }
+
+        // Add event listener to the add/update button
+        addButton.addEventListener('click', () => {
+            const minutesToAdd = parseFloat(studyMinutesInput.value);
+            const selectedDate = studyDateInput.value;
+            let historyData = getCookie('studyHistory') || [];
+
+            if (isNaN(minutesToAdd) || minutesToAdd <= 0 || !selectedDate) {
+                showMessage('学習時間と日付を入力してください。', 'red');
+                return;
+            }
+
+            if (editingIndex !== null) {
+                // Update existing item
+                historyData[editingIndex].date = selectedDate;
+                historyData[editingIndex].minutes = minutesToAdd;
+                showMessage('学習履歴を更新しました！', 'green');
+                addButton.textContent = '時間を追加'; // Reset button text
+                editingIndex = null; // Clear editing state
+            } else {
+                // Add new item
+                historyData.push({
+                    date: selectedDate,
+                    minutes: minutesToAdd,
+                    timestamp: new Date().getTime()
+                });
+                showMessage(`日付: ${selectedDate}, ${minutesToAdd}分を記録しました！`, 'green');
+            }
+
+            setCookie('studyHistory', historyData, 365);
+            renderHistory();
+
+            // Clear inputs
+            studyMinutesInput.value = '';
+            studyDateInput.value = (new Date()).toISOString().split('T')[0];
+        });
+
+        // Add event listener to handle edit/delete button clicks using event delegation
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('edit-button')) {
+                const button = e.target;
+                const index = parseInt(button.getAttribute('data-index'));
+                const historyData = getCookie('studyHistory');
+                
+                const data = historyData[index];
+                
+                // Populate the input fields with the selected data
+                studyDateInput.value = data.date;
+                studyMinutesInput.value = data.minutes;
+
+                // Change the button text and store the editing index
+                addButton.textContent = '更新を保存';
+                editingIndex = index;
+
+                showMessage('履歴を修正できます。入力フォームを更新して「更新を保存」ボタンを押してください。', 'green');
+            } else if (e.target && e.target.classList.contains('delete-button')) {
+                const button = e.target;
+                const index = parseInt(button.getAttribute('data-index'));
+
+                let historyData = getCookie('studyHistory');
+                historyData.splice(index, 1); // Remove item from array
+                setCookie('studyHistory', historyData, 365);
+                renderHistory();
+                showMessage('学習履歴を削除しました！', 'green');
+            }
+        });
+
+        // --- Settings Modal Logic ---
+        settingsButton.addEventListener('click', () => {
+            // Populate modal inputs with current settings
+            goalInput.value = currentSettings.goal;
+            targetHoursInput.value = currentSettings.targetHours;
+            reasonInput.value = currentSettings.reason;
+            detailedPlanInput.value = JSON.stringify(currentSettings.detailedPlan, null, 2);
+            settingsModal.style.display = 'block';
+        });
+
+        closeModalButton.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+
+        saveSettingsButton.addEventListener('click', () => {
+            const newGoal = goalInput.value.trim() || DEFAULT_SETTINGS.goal;
+            const newTargetHours = parseInt(targetHoursInput.value) || DEFAULT_SETTINGS.targetHours;
+            const newReason = reasonInput.value.trim() || DEFAULT_SETTINGS.reason;
+            let newDetailedPlan = DEFAULT_SETTINGS.detailedPlan;
+            try {
+                newDetailedPlan = JSON.parse(detailedPlanInput.value);
+            } catch (e) {
+                showMessage('週ごとの詳細計画の形式が無効です。JSON形式で入力してください。', 'red');
+                return;
+            }
+            
+            if (newTargetHours <= 0) {
+                showMessage('目標学習時間は1以上の値を設定してください。', 'red');
+                return;
+            }
+
+            currentSettings = {
+                goal: newGoal,
+                targetHours: newTargetHours,
+                reason: newReason,
+                detailedPlan: newDetailedPlan
+            };
+            setCookie('studySettings', currentSettings, 365);
+            applySettings();
+            renderHistory(); // Re-render to update progress bar with new target
+            settingsModal.style.display = 'none';
+        });
+
+        // Reset functionality
+        resetButton.addEventListener('click', () => {
+            confirmationModal.style.display = 'block';
+        });
+
+        confirmResetButton.addEventListener('click', () => {
+            // Reset settings to default
+            currentSettings = DEFAULT_SETTINGS;
+            setCookie('studySettings', DEFAULT_SETTINGS, 365);
+            
+            // Clear all study history
+            setCookie('studyHistory', [], 365);
+            
+            applySettings();
+            renderHistory();
+            confirmationModal.style.display = 'none';
+            settingsModal.style.display = 'none';
+            showMessage('全ての設定と学習履歴をリセットしました！', 'green');
+        });
+
+        cancelResetButton.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+        });
+
+        window.onclick = (event) => {
+            if (event.target === settingsModal) {
+                settingsModal.style.display = 'none';
+            } else if (event.target === confirmationModal) {
+                confirmationModal.style.display = 'none';
+            }
+        };
+
+        // --- Detailed Plan Logic ---
+        togglePlanButton.addEventListener('click', () => {
+            const isHidden = detailedPlanSection.classList.contains('hidden');
+            if (isHidden) {
+                detailedPlanSection.classList.remove('hidden');
+                togglePlanButton.textContent = '週ごとの詳細計画を非表示';
+                detailedPlanSection.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                detailedPlanSection.classList.add('hidden');
+                togglePlanButton.textContent = '週ごとの詳細計画を表示';
+            }
+        });
+
+        // Populate the static plan table
+        function populatePlanTable() {
+            const planData = currentSettings.detailedPlan;
+            planTableBody.innerHTML = '';
+            
+            planData.forEach(data => {
+                const row = document.createElement('tr');
+                row.classList.add('border-b', 'border-gray-700', 'hover:bg-gray-700', 'transition-colors');
+                Object.values(data).forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.classList.add('p-4', 'whitespace-nowrap');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+                planTableBody.appendChild(row);
+            });
+            
+            // Add the total row
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('border-b', 'border-gray-700', 'hover:bg-gray-700', 'transition-colors', 'font-bold', 'text-white', 'text-xl');
+            totalRow.innerHTML = `
+                <td class="p-4">合計</td>
+                <td class="p-4">4:50</td>
+                <td class="p-4">13:30</td>
+                <td class="p-4"></td>
+                <td class="p-4"></td>
+            `;
+            planTableBody.appendChild(totalRow);
+        }
+
+        // On document load
+        window.onload = () => {
+            loadSettings();
+            renderHistory();
+            populatePlanTable();
+
+            // Set today's date as the default value for the date input
+            const today = (new Date()).toISOString().split('T')[0];
+            studyDateInput.value = today;
+        };
+    </script>
 </body>
 </html>
